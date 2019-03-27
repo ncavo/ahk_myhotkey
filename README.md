@@ -1,1 +1,1 @@
-# ahk_myhotkey
+# ahk-myhotkey
