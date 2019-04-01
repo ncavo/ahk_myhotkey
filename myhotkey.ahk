@@ -30,8 +30,7 @@ Loop, read, myhotkey.ini
 	}
 	else if (currentConfigGroup = "[WindowProcessRegister]")
 	{
-		if SubStr(line, 1, 1) <> ";"
-			registeredWindows.Push(line)
+		registeredWindows.Push(line)
 	}
 }
 Loop, read, myhotkey.dat
@@ -150,7 +149,6 @@ return
 
 WindowSizeAndMove(ByRef registeredWindows, ByRef savedWindowData, keyNum)
 {
-	FileAppend, %A_LineNumber%] WindowSizeAndMove(%keyNum%)`n, myhotkey.log
 	hWnd := WinExist("A")
 	VarSetCapacity(rect, 16)
 	bResult := DllCall("GetWindowRect", "ptr", hWnd, "ptr", &rect)	
@@ -171,6 +169,7 @@ WindowSizeAndMove(ByRef registeredWindows, ByRef savedWindowData, keyNum)
 	monTop := NumGet(mon, 24, "int")
 	monRight := NumGet(mon, 28, "int")
 	monBottom := NumGet(mon, 32, "int")
+	FileAppend, %A_LineNumber%] keyNum(%keyNum%) win(%winLeft%`,%winTop%`,%winRight%`,%winBottom%) mon(%monLeft%`,%monTop%`,%monRight%`,%monBottom%)`n, myhotkey.log
 	
 	if keyNum = 1
 	{
@@ -255,7 +254,7 @@ WindowSizeAndMove(ByRef registeredWindows, ByRef savedWindowData, keyNum)
 	className := Trim(className)	
 	winWidth := winRight - winLeft
 	winHeight := winBottom - winTop
-	FileAppend, %A_LineNumber%] procName=%procName% className=%className% winSize(%winWidth%`,%winHeight%)`n, myhotkey.log
+	FileAppend, %A_LineNumber%] procName=%procName% className=%className%`n, myhotkey.log
 
 	if keyNum = 5
 	{
@@ -286,8 +285,6 @@ WindowSizeAndMove(ByRef registeredWindows, ByRef savedWindowData, keyNum)
 		line := procName . ":" . className . ":" . winLeft - monLeft . ":" . winTop - monTop . ":" . winRight - winLeft . ":" . winBottom - winTop
 		savedWindowData.Push(line)
 		FileDelete myhotkey.dat
-		for i, line in savedWindowData
-			FileAppend, %line%`n, myhotkey.dat
 		MsgBox Saved
 		return
 	}
@@ -318,17 +315,49 @@ WindowSizeAndMove(ByRef registeredWindows, ByRef savedWindowData, keyNum)
 			continue
 		if (procName <> Trim(arr[1]))
 			continue
+		width = 0
+		height = 0
+		posXStr := "50%"
+		posYStr := "50%"
 		arr := StrSplit(arr[2], ",")
-		if (arr.Length() <> 2) and (arr.Length() <> 4)
-			continue
-		temp1 := GetWindowSizeWithParam(Trim(arr[1]), monRight - monLeft)
-		temp2 := GetWindowSizeWithParam(Trim(arr[2]), monBottom - monTop)
-		FileAppend, %A_LineNumber%] temp(%temp1%`,%temp2%)`n, myhotkey.log
-		if (temp1 < 100) or (temp1 > monRight - monLeft) or (temp2 < 100) or (temp2 > monBottom - monTop)
+		if (arr.Length() = 2)
+		{
+			width := GetWindowSizeWithParam(Trim(arr[1]), monRight - monLeft)
+			height := GetWindowSizeWithParam(Trim(arr[2]), monBottom - monTop)
+		}
+		else if (arr.Length() = 3)
+		{
+			if (Trim(arr[1]) = "V") and ((monRight - monLeft) > (monBottom - monTop))
+				continue
+			if (Trim(arr[1]) = "H") and ((monRight - monLeft) < (monBottom - monTop))
+				continue
+			width := GetWindowSizeWithParam(Trim(arr[2]), monRight - monLeft)
+			height := GetWindowSizeWithParam(Trim(arr[3]), monBottom - monTop)
+		}
+		else if (arr.Length() = 4)
+		{
+			width := GetWindowSizeWithParam(Trim(arr[1]), monRight - monLeft)
+			height := GetWindowSizeWithParam(Trim(arr[2]), monBottom - monTop)					
+			posXStr := Trim(arr[3])
+			posYStr := Trim(arr[4])
+		}
+		else if (arr.Length() = 5)
+		{
+			if (Trim(arr[1]) = "V") and ((monRight - monLeft) > (monBottom - monTop))
+				continue
+			if (Trim(arr[1]) = "H") and ((monRight - monLeft) < (monBottom - monTop))
+				continue
+			width := GetWindowSizeWithParam(Trim(arr[2]), monRight - monLeft)
+			height := GetWindowSizeWithParam(Trim(arr[3]), monBottom - monTop)		
+			posXStr := Trim(arr[4])
+			posYStr := Trim(arr[5])
+		}
+		FileAppend, %A_LineNumber%] size(%width%`,%height%) posStr(%posXStr%`,%posYStr%)`n, myhotkey.log
+		if (width < 100) or (width > monRight - monLeft) or (height < 100) or (height > monBottom - monTop)
 			continue
 		if (found = 0)
 		{
-			if (winWidth = temp1) and (winHeight = temp2)
+			if (winWidth = width) and (winHeight = height)
 			{
 				found = 1
 				if (targetSizeWidth <> 0) and (keyNum = 7)
@@ -339,34 +368,18 @@ WindowSizeAndMove(ByRef registeredWindows, ByRef savedWindowData, keyNum)
 			}
 			else if (targetSizeWidth = 0) or (keyNum = 7)
 			{
-				targetSizeWidth = %temp1%
-				targetSizeHeight = %temp2%
-				if arr.Length() = 4
-				{
-					targetPosX := GetWindowSizeWithParam(Trim(arr[3]), monRight - monLeft - targetSizeWidth) + monLeft
-					targetPosY := GetWindowSizeWithParam(Trim(arr[4]), monBottom - monTop - targetSizeHeight) + monTop
-				}
-				else
-				{
-					targetPosX := ((monRight - monLeft - targetSizeWidth) // 2) + monLeft
-					targetPosY := ((monBottom - monTop - targetSizeHeight) // 2) + monTop
-				}				
+				targetSizeWidth = %width%
+				targetSizeHeight = %height%
+				targetPosX := GetWindowSizeWithParam(posXStr, monRight - monLeft - targetSizeWidth) + monLeft
+				targetPosY := GetWindowSizeWithParam(posYStr, monBottom - monTop - targetSizeHeight) + monTop
 			}
 		}
 		else
 		{
-			targetSizeWidth = %temp1%
-			targetSizeHeight = %temp2%				
-			if arr.Length() = 4
-			{
-				targetPosX := GetWindowSizeWithParam(Trim(arr[3]), monRight - monLeft - targetSizeWidth) + monLeft
-				targetPosY := GetWindowSizeWithParam(Trim(arr[4]), monBottom - monTop - targetSizeHeight) + monTop
-			}
-			else
-			{
-				targetPosX := ((monRight - monLeft - targetSizeWidth) // 2) + monLeft
-				targetPosY := ((monBottom - monTop - targetSizeHeight) // 2) + monTop
-			}				
+			targetSizeWidth = %width%
+			targetSizeHeight = %height%				
+			targetPosX := GetWindowSizeWithParam(posXStr, monRight - monLeft - targetSizeWidth) + monLeft
+			targetPosY := GetWindowSizeWithParam(posYStr, monBottom - monTop - targetSizeHeight) + monTop
 			if keyNum = 8
 			{
 				WinMove,A,,targetPosX,targetPosY,targetSizeWidth,targetSizeHeight
