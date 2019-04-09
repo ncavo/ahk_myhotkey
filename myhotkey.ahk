@@ -3,8 +3,10 @@ CoordMode, Mouse, Screen
 
 FileDelete myhotkey.log
 
-fX = 0
-fY = 0
+sens_X = 0
+sens_Y = 0
+posX2_X = 0
+posX2_Y = 0
 registeredWindows := []
 currentConfigGroup = "[]"
 Loop, read, myhotkey.ini
@@ -18,13 +20,13 @@ Loop, read, myhotkey.ini
 	else if (currentConfigGroup = "[WheelScrollEmulator]")
 	{
 		arr := StrSplit(line, "=")
-		if Trim(arr[1]) = "fX"
+		if Trim(arr[1]) = "horizontal_sensitivity"
 		{
-			fX := Trim(arr[2])
+			sens_X := Trim(arr[2])
 		}
-		else if Trim(arr[1]) = "fY"
+		else if Trim(arr[1]) = "vertical_sensitivity"
 		{
-			fY := Trim(arr[2])
+			sens_Y := Trim(arr[2])
 		}	
 	}
 	else if (currentConfigGroup = "[WindowProcessRegister]")
@@ -37,64 +39,77 @@ Loop, read, myhotkey.ini
 return
 
 XButton1::
-if (fX > 0) or (fY > 0)
+if (sens_X > 0) or (sens_Y > 0)
 {
-	bIsMoved = 0
-	MouseGetPos, pX, pY
-	SetTimer, OnTimer, 100
+	bIsX1Moved = 0
+	MouseGetPos, click_posX1_X, click_posX1_Y
+	SetTimer, OnTimerX1, 100
 }
 return
 
 XButton1 Up::
-if (fX > 0) or (fY > 0)
+if (sens_X > 0) or (sens_Y > 0)
 {
-	SetTimer, OnTimer, Off
-	if bIsMoved = 0
+	SetTimer, OnTimerX1, Off
+	if bIsX1Moved = 0
 		MouseClick, Middle
 }
 return
 
-OnTimer:
-MouseGetPos, nX, nY
-MouseMove, pX, pY
-dX += nX - pX
-dY += nY - pY
-;FileAppend, MouseDelta(%dX%`,%dY%) `n, myhotkey.log
-if (fX > 0)
+OnTimerX1:
+MouseGetPos, move_posX1_X, move_posX1_Y
+MouseMove, click_posX1_X, click_posX1_Y
+deltaX1_X += move_posX1_X - click_posX1_X
+deltaX1_Y += move_posX1_Y - click_posX1_Y
+;FileAppend, MouseDelta(%deltaX1_X%`,%deltaX1_Y%) `n, myhotkey.log
+if (sens_X > 0)
 {
-	if dX >= %fX%
+	if deltaX1_X >= %sens_X%
 	{
-		bIsMoved = 1
-		c := dX // fX
+		bIsX1Moved = 1
+		c := deltaX1_X // sens_X
 		MouseClick, WR,,,c
-		dX -= c * fX
+		deltaX1_X -= c * sens_X
 	}
-	else if dX <= -%fX%
+	else if deltaX1_X <= -%sens_X%
 	{
-		bIsMoved = 1
-		c := -dX // fX
+		bIsX1Moved = 1
+		c := -deltaX1_X // sens_X
 		MouseClick, WL,,,c
-		dX += c * fX
+		deltaX1_X += c * sens_X
 	}
 }
 
-if (fY > 0)
+if (sens_Y > 0)
 {
-	if dY >= %fY%
+	if deltaX1_Y >= %sens_Y%
 	{
-		bIsMoved = 1
-		c := dY // fY
+		bIsX1Moved = 1
+		c := deltaX1_Y // sens_Y
 		MouseClick, WD,,,c
-		dY -= c * fY
+		deltaX1_Y -= c * sens_Y
 	}
-	else if dY <= -%fY%
+	else if deltaX1_Y <= -%sens_Y%
 	{
-		bIsMoved = 1
-		c := -dY // fY
+		bIsX1Moved = 1
+		c := -deltaX1_Y // sens_Y
 		MouseClick, WU,,,c
-		dY += c * fY
+		deltaX1_Y += c * sens_Y
 	}
 }
+return
+
+XButton2::
+return
+
+XButton2 Up::
+MouseGetPos, click_posX2_X, click_posX2_Y
+if (posX2_X <> 0) and (posX2_Y <> 0)
+{
+	MouseMove, posX2_X, posX2_Y
+}
+posX2_X := click_posX2_X
+posX2_Y := click_posX2_Y
 return
 
 <!#Left UP::
