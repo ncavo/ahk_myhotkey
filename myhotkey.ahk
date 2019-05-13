@@ -5,8 +5,8 @@ FileDelete myhotkey.log
 
 sens_X = 0
 sens_Y = 0
-posX2_X = 0
-posX2_Y = 0
+position_count = 2
+posX2Arr := []
 registeredWindows := []
 currentConfigGroup = "[]"
 Loop, read, myhotkey.ini
@@ -27,6 +27,14 @@ Loop, read, myhotkey.ini
 		else if Trim(arr[1]) = "vertical_sensitivity"
 		{
 			sens_Y := Trim(arr[2])
+		}	
+	}
+	else if (currentConfigGroup = "[MousePointerJumper]")
+	{
+		arr := StrSplit(line, "=")
+		if Trim(arr[1]) = "position_count"
+		{
+			position_count := Trim(arr[2])
 		}	
 	}
 	else if (currentConfigGroup = "[WindowProcessRegister]")
@@ -104,12 +112,13 @@ return
 
 XButton2 Up::
 MouseGetPos, click_posX2_X, click_posX2_Y
-if (posX2_X <> 0) and (posX2_Y <> 0)
+posX2Arr.Push(click_posX2_X, click_posX2_Y)
+if (posX2Arr.Length() >= position_count * 2)
 {
-	MouseMove, posX2_X, posX2_Y
+	click_posX2_X := posX2Arr.RemoveAt(1)
+	click_posX2_Y := posX2Arr.RemoveAt(1)
+	MouseMove, click_posX2_X, click_posX2_Y	
 }
-posX2_X := click_posX2_X
-posX2_Y := click_posX2_Y
 return
 
 <!#Left UP::
@@ -245,8 +254,7 @@ WindowSizeAndMove(ByRef registeredWindows, ByRef keyNum)
 	
 	targetSizeWidth = 0
 	targetSizeHeight = 0
-	targetPosX = 0
-	targetPosY = 0
+	targetPos = new Position(0, 0)
 	found = 0
 	for i, line in registeredWindows
 	{
@@ -257,8 +265,8 @@ WindowSizeAndMove(ByRef registeredWindows, ByRef keyNum)
 			continue
 		width = 0
 		height = 0
-		posXStr := "50%"
-		posYStr := "50%"
+		posXStr := ""
+		posYStr := ""
 		arr := StrSplit(arr[2], ",")
 		if (arr.Length() = 2)
 		{
@@ -284,40 +292,40 @@ WindowSizeAndMove(ByRef registeredWindows, ByRef keyNum)
 			continue
 		if (found = 0)
 		{
-			if (winWidth = width) and (winHeight = height)
+			if (winWidth - 1 <= width) and (winWidth + 1 >= width) and (winHeight - 1 <= height) and (winHeight + 1 >= height)
 			{
 				found = 1
 				if (targetSizeWidth <> 0) and (keyNum = 5)
 				{
-					WinMove,A,,targetPosX,targetPosY,targetSizeWidth,targetSizeHeight
+					WinMove,A,,targetPos.x,targetPos.y,targetSizeWidth,targetSizeHeight
 					return
 				}
 			}
 			else if (targetSizeWidth = 0) or (keyNum = 5)
 			{
 				targetSizeWidth = %width%
-				targetSizeHeight = %height%
-				targetPosX := GetWindowSizeWithParam(posXStr, monRight - monLeft - targetSizeWidth) + monLeft
-				targetPosY := GetWindowSizeWithParam(posYStr, monBottom - monTop - targetSizeHeight) + monTop
+				targetSizeHeight = %height%				
+				targetPos := GetWindowPostWithParam(posXStr, posYStr, targetSizeWidth, targetSizeHeight, winLeft, winTop, winRight, winBottom, monLeft, monTop, monRight, monBottom)
 			}
 		}
 		else
 		{
 			targetSizeWidth = %width%
-			targetSizeHeight = %height%				
-			targetPosX := GetWindowSizeWithParam(posXStr, monRight - monLeft - targetSizeWidth) + monLeft
-			targetPosY := GetWindowSizeWithParam(posYStr, monBottom - monTop - targetSizeHeight) + monTop
+			targetSizeHeight = %height%
+			targetPos := GetWindowPostWithParam(posXStr, posYStr, targetSizeWidth, targetSizeHeight, winLeft, winTop, winRight, winBottom, monLeft, monTop, monRight, monBottom)
 			if keyNum = 6
 			{
-				WinMove,A,,targetPosX,targetPosY,targetSizeWidth,targetSizeHeight
+				WinMove,A,,targetPos.x,targetPos.y,targetSizeWidth,targetSizeHeight
 				return
 			}			
 		}
-		FileAppend, %A_LineNumber%] targetSize(%targetSizeWidth%`,%targetSizeHeight%) targetPos(%targetPosX%`,%targetPosY%) found=%found%`n, myhotkey.log
+		targetPos_x := targetPos.x
+		targetPos_y := targetPos.y
+		FileAppend, %A_LineNumber%] targetSize(%targetSizeWidth%`,%targetSizeHeight%) targetPos(%targetPos_x%`,%targetPos_y%) found=%found%`n, myhotkey.log
 	}
 	if (targetSizeWidth <> 0)
 	{
-		WinMove,A,,targetPosX,targetPosY,targetSizeWidth,targetSizeHeight
+		WinMove,A,,targetPos.x,targetPos.y,targetSizeWidth,targetSizeHeight
 	}
 	else if (found = 0)
 	{
@@ -344,4 +352,116 @@ GetWindowSizeWithParam(param, size)
 		}		
 	}
 	return param
+}
+
+GetWindowPostWithParam(posXStr, posYStr, targetSizeWidth, targetSizeHeight, winLeft, winTop, winRight, winBottom, monLeft, monTop, monRight, monBottom)
+{
+	targetPos := new Position(0, 0)
+	if (posXStr <> "") and (posYStr <> "")
+	{
+		targetPos.x := GetWindowSizeWithParam(posXStr, monRight - monLeft - targetSizeWidth) + monLeft
+		targetPos.y := GetWindowSizeWithParam(posYStr, monBottom - monTop - targetSizeHeight) + monTop
+		return targetPos
+	}
+	
+	winWidth := winRight - winLeft
+	winHeight := winBottom - winTop
+	winCenterPos := new Position(winLeft + (winWidth / 2), winTop + (winHeight / 2))
+	monWidth := monRight - monLeft
+	monHeight := monBottom - monTop
+	monCenterPos := new Position(monLeft + (monWidth / 2), monTop + (monHeight / 2))
+
+	newLeft := 0
+	newTop := 0
+	newRight := 0
+	newBottom := 0
+	if (winCenterPos.x < monCenterPos.x)
+	{
+		if (winCenterPos.y < monCenterPos.y)
+		{
+			newLeft := winLeft
+			newTop := winTop
+			newRight := winLeft + targetSizeWidth
+			newBottom := winTop + targetSizeHeight
+			if(newRight > monRight)
+			{
+				newLeft -= newRight - monRight
+				newRight := monRight
+			}
+			if(newBottom > monBottom)
+			{
+				newTop -= newBottom - monBottom
+				newBottom := monBottom
+			}
+		}
+		else
+		{
+			newLeft := winLeft
+			newTop := winBottom - targetSizeHeight
+			newRight := winLeft + targetSizeWidth
+			newBottom := winBottom
+			if(newRight > monRight)
+			{
+				newLeft -= newRight - monRight
+				newRight := monRight
+			}
+			if(newTop < monTop)
+			{
+				newBottom += monTop - newTop
+				newTop := monTop
+			}			
+		}
+	}
+	else
+	{
+		if (winCenterPos.y < monCenterPos.y)
+		{
+			newLeft := winRight - targetSizeWidth
+			newTop := winTop
+			newRight := winRight
+			newBottom := winTop + targetSizeHeight
+			if(newLeft < monLeft)
+			{
+				newRight += monLeft - newLeft
+				newLeft := monLeft
+			}
+			if(newBottom > monBottom)
+			{
+				newTop -= newBottom - monBottom
+				newBottom := monBottom
+			}
+		}
+		else
+		{
+			newLeft := winRight - targetSizeWidth
+			newTop := winBottom - targetSizeHeight
+			newRight := winRight
+			newBottom := winBottom
+			if(newLeft < monLeft)
+			{
+				newRight += monLeft - newLeft
+				newLeft := monLeft
+			}
+			if(newTop < monTop)
+			{
+				newBottom += monTop - newTop
+				newTop := monTop
+			}			
+		}
+	}
+	targetPos.x := newLeft
+	targetPos.y := newTop
+	return targetPos
+}
+
+class Position
+{
+	x := 0
+	y := 0
+
+	__New(x, y)
+	{
+		this.x := x
+		this.y := y
+	}
 }
