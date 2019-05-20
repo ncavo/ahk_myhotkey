@@ -50,7 +50,15 @@ XButton1::
 if (sens_X > 0) or (sens_Y > 0)
 {
 	bIsX1Moved = 0
-	MouseGetPos, click_posX1_X, click_posX1_Y
+	VarSetCapacity(click_posX1, 8)
+	bResult := DllCall("GetCursorPos", "ptr", &click_posX1)	
+	if bResult = 0
+	{
+		MsgBox % "GetCursorPos failed: " . DllCall("GetLastError")
+		return
+	}
+	click_posX1_X := NumGet(click_posX1, 0, "int")
+	click_posX1_Y := NumGet(click_posX1, 4, "int")
 	SetTimer, OnTimerX1, 100
 }
 return
@@ -65,8 +73,16 @@ if (sens_X > 0) or (sens_Y > 0)
 return
 
 OnTimerX1:
-MouseGetPos, move_posX1_X, move_posX1_Y
-MouseMove, click_posX1_X, click_posX1_Y
+VarSetCapacity(move_posX1, 8)
+bResult := DllCall("GetCursorPos", "ptr", &move_posX1)	
+if bResult = 0
+{
+	MsgBox % "GetCursorPos failed: " . DllCall("GetLastError")
+	return
+}
+move_posX1_X := NumGet(move_posX1, 0, "int")
+move_posX1_Y := NumGet(move_posX1, 4, "int")
+DllCall("SetCursorPos", "int", click_posX1_X, "int", click_posX1_Y)
 deltaX1_X += move_posX1_X - click_posX1_X
 deltaX1_Y += move_posX1_Y - click_posX1_Y
 ;FileAppend, MouseDelta(%deltaX1_X%`,%deltaX1_Y%) `n, myhotkey.log
@@ -108,17 +124,26 @@ if (sens_Y > 0)
 return
 
 XButton2::
+VarSetCapacity(click_posX2, 8)
+bResult := DllCall("GetCursorPos", "ptr", &click_posX2)	
+if bResult = 0
+{
+	MsgBox % "GetCursorPos failed: " . DllCall("GetLastError")
+	return
+}
+click_posX2_X1 := NumGet(click_posX2, 0, "int")
+click_posX2_Y1 := NumGet(click_posX2, 4, "int")
+posX2Arr.Push(click_posX2_X1, click_posX2_Y1)
+if (posX2Arr.Length() >= position_count * 2)
+{
+	click_posX2_X2 := posX2Arr.RemoveAt(1)
+	click_posX2_Y2 := posX2Arr.RemoveAt(1)
+	DllCall("SetCursorPos", "int", click_posX2_X2, "int", click_posX2_Y1)
+	DllCall("SetCursorPos", "int", click_posX2_X2, "int", click_posX2_Y2)
+}
 return
 
 XButton2 Up::
-MouseGetPos, click_posX2_X, click_posX2_Y
-posX2Arr.Push(click_posX2_X, click_posX2_Y)
-if (posX2Arr.Length() >= position_count * 2)
-{
-	click_posX2_X := posX2Arr.RemoveAt(1)
-	click_posX2_Y := posX2Arr.RemoveAt(1)
-	MouseMove, click_posX2_X, click_posX2_Y	
-}
 return
 
 <!#Left UP::
@@ -375,80 +400,22 @@ GetWindowPostWithParam(posXStr, posYStr, targetSizeWidth, targetSizeHeight, winL
 	newTop := 0
 	newRight := 0
 	newBottom := 0
-	if (winCenterPos.x < monCenterPos.x)
+	
+	newLeft := winLeft
+	newTop := winTop
+	newRight := winLeft + targetSizeWidth
+	newBottom := winTop + targetSizeHeight
+	if(newRight > monRight)
 	{
-		if (winCenterPos.y < monCenterPos.y)
-		{
-			newLeft := winLeft
-			newTop := winTop
-			newRight := winLeft + targetSizeWidth
-			newBottom := winTop + targetSizeHeight
-			if(newRight > monRight)
-			{
-				newLeft -= newRight - monRight
-				newRight := monRight
-			}
-			if(newBottom > monBottom)
-			{
-				newTop -= newBottom - monBottom
-				newBottom := monBottom
-			}
-		}
-		else
-		{
-			newLeft := winLeft
-			newTop := winBottom - targetSizeHeight
-			newRight := winLeft + targetSizeWidth
-			newBottom := winBottom
-			if(newRight > monRight)
-			{
-				newLeft -= newRight - monRight
-				newRight := monRight
-			}
-			if(newTop < monTop)
-			{
-				newBottom += monTop - newTop
-				newTop := monTop
-			}			
-		}
+		newLeft -= newRight - monRight
+		newRight := monRight
 	}
-	else
+	if(newBottom > monBottom)
 	{
-		if (winCenterPos.y < monCenterPos.y)
-		{
-			newLeft := winRight - targetSizeWidth
-			newTop := winTop
-			newRight := winRight
-			newBottom := winTop + targetSizeHeight
-			if(newLeft < monLeft)
-			{
-				newRight += monLeft - newLeft
-				newLeft := monLeft
-			}
-			if(newBottom > monBottom)
-			{
-				newTop -= newBottom - monBottom
-				newBottom := monBottom
-			}
-		}
-		else
-		{
-			newLeft := winRight - targetSizeWidth
-			newTop := winBottom - targetSizeHeight
-			newRight := winRight
-			newBottom := winBottom
-			if(newLeft < monLeft)
-			{
-				newRight += monLeft - newLeft
-				newLeft := monLeft
-			}
-			if(newTop < monTop)
-			{
-				newBottom += monTop - newTop
-				newTop := monTop
-			}			
-		}
+		newTop -= newBottom - monBottom
+		newBottom := monBottom
 	}
+	
 	targetPos.x := newLeft
 	targetPos.y := newTop
 	return targetPos
