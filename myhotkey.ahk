@@ -3,8 +3,6 @@ CoordMode, Mouse, Screen
 
 FileDelete myhotkey.log
 
-sens_X = 0
-sens_Y = 0
 position_count = 2
 posX2Arr := []
 registeredWindows := []
@@ -16,18 +14,6 @@ Loop, read, myhotkey.ini
 	if SubStr(line, 1, 1) = "[" and SubStr(line, -0) = "]"
 	{
 		currentConfigGroup := line
-	}
-	else if (currentConfigGroup = "[WheelScrollEmulator]")
-	{
-		arr := StrSplit(line, "=")
-		if Trim(arr[1]) = "horizontal_sensitivity"
-		{
-			sens_X := Trim(arr[2])
-		}
-		else if Trim(arr[1]) = "vertical_sensitivity"
-		{
-			sens_Y := Trim(arr[2])
-		}	
 	}
 	else if (currentConfigGroup = "[MousePointerJumper]")
 	{
@@ -42,83 +28,6 @@ Loop, read, myhotkey.ini
 		arr := StrSplit(line, "=")
 		if arr.Length() = 2
 			registeredWindows.Push(line)
-	}
-}
-return
-
-XButton1::
-if (sens_X > 0) or (sens_Y > 0)
-{
-	bIsX1Moved = 0
-	VarSetCapacity(click_posX1, 8)
-	bResult := DllCall("GetCursorPos", "ptr", &click_posX1)	
-	if bResult = 0
-	{
-		MsgBox % "GetCursorPos failed: " . DllCall("GetLastError")
-		return
-	}
-	click_posX1_X := NumGet(click_posX1, 0, "int")
-	click_posX1_Y := NumGet(click_posX1, 4, "int")
-	SetTimer, OnTimerX1, 100
-}
-return
-
-XButton1 Up::
-if (sens_X > 0) or (sens_Y > 0)
-{
-	SetTimer, OnTimerX1, Off
-	if bIsX1Moved = 0
-		MouseClick, Middle
-}
-return
-
-OnTimerX1:
-VarSetCapacity(move_posX1, 8)
-bResult := DllCall("GetCursorPos", "ptr", &move_posX1)	
-if bResult = 0
-{
-	MsgBox % "GetCursorPos failed: " . DllCall("GetLastError")
-	return
-}
-move_posX1_X := NumGet(move_posX1, 0, "int")
-move_posX1_Y := NumGet(move_posX1, 4, "int")
-DllCall("SetCursorPos", "int", click_posX1_X, "int", click_posX1_Y)
-deltaX1_X += move_posX1_X - click_posX1_X
-deltaX1_Y += move_posX1_Y - click_posX1_Y
-;FileAppend, MouseDelta(%deltaX1_X%`,%deltaX1_Y%) `n, myhotkey.log
-if (sens_X > 0)
-{
-	if deltaX1_X >= %sens_X%
-	{
-		bIsX1Moved = 1
-		c := deltaX1_X // sens_X
-		MouseClick, WR,,,c
-		deltaX1_X -= c * sens_X
-	}
-	else if deltaX1_X <= -%sens_X%
-	{
-		bIsX1Moved = 1
-		c := -deltaX1_X // sens_X
-		MouseClick, WL,,,c
-		deltaX1_X += c * sens_X
-	}
-}
-
-if (sens_Y > 0)
-{
-	if deltaX1_Y >= %sens_Y%
-	{
-		bIsX1Moved = 1
-		c := deltaX1_Y // sens_Y
-		MouseClick, WD,,,c
-		deltaX1_Y -= c * sens_Y
-	}
-	else if deltaX1_Y <= -%sens_Y%
-	{
-		bIsX1Moved = 1
-		c := -deltaX1_Y // sens_Y
-		MouseClick, WU,,,c
-		deltaX1_Y += c * sens_Y
 	}
 }
 return
@@ -143,7 +52,7 @@ if (posX2Arr.Length() >= position_count * 2)
 }
 return
 
-XButton2 Up::
+XButton2 UP::
 return
 
 <!#Left UP::
