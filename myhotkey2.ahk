@@ -3,14 +3,13 @@ CoordMode, Mouse, Screen
 
 FileDelete myhotkey.log
 
-sens_X = 0
-sens_Y = 0
+wheelScrollEmul = 0
+wheelSpeedMultiplier = 1
+preventAway = 0
 
-position_count = 2
-posX2Arr := []
 registeredWindows := []
 currentConfigGroup = "[]"
-Loop, read, myhotkey.ini
+Loop, Read, myhotkey.ini
 {
 	arr := StrSplit(A_LoopReadLine, ";")
 	line := Trim(arr[1])
@@ -21,23 +20,19 @@ Loop, read, myhotkey.ini
 	else if (currentConfigGroup = "[WheelScrollEmulator]")
 	{
 		arr := StrSplit(line, "=")
-		if Trim(arr[1]) = "horizontal_sensitivity"
+		if Trim(arr[1]) = "on"
 		{
-			sens_X := Trim(arr[2])
+			wheelScrollEmul := Trim(arr[2])
 		}
-		else if Trim(arr[1]) = "vertical_sensitivity"
-		{
-			sens_Y := Trim(arr[2])
-		}	
-	}	
-	else if (currentConfigGroup = "[MousePointerJumper]")
+	}
+	else if (currentConfigGroup = "[PreventAway]")
 	{
 		arr := StrSplit(line, "=")
-		if Trim(arr[1]) = "position_count"
+		if Trim(arr[1]) = "on"
 		{
-			position_count := Trim(arr[2])
-		}	
-	}
+			preventAway := Trim(arr[2])
+		}
+	}	
 	else if (currentConfigGroup = "[WindowProcessRegister]")
 	{
 		arr := StrSplit(line, "=")
@@ -45,106 +40,60 @@ Loop, read, myhotkey.ini
 		registeredWindows.Push(line)
 	}
 }
+if (preventAway > 0) 
+{
+	SetTimer, PreventAway, 90000
+}
+return
+
+PreventAway:
+if (A_TimeIdle >= 60000) 
+{
+	MouseMove, 1, 1,, R
+	MouseMove, -1, -1,, R
+}
 return
 
 XButton1::
-if (sens_X > 0) or (sens_Y > 0)
+if (wheelScrollEmul > 0)
 {
-	bIsX1Moved = 0
-	VarSetCapacity(click_posX1, 8)
-	bResult := DllCall("GetCursorPos", "ptr", &click_posX1)	
-	if bResult = 0
-	{
-		MsgBox % "GetCursorPos failed: " . DllCall("GetLastError")
-		return
-	}
-	click_posX1_X := NumGet(click_posX1, 0, "int")
-	click_posX1_Y := NumGet(click_posX1, 4, "int")
-	SetTimer, OnTimerX1, 100
+	MouseClick, WD,,,1
+	wheelSpeedMultiplier = 1
+	SetTimer, OnTimerX1, 50
 }
 return
 
 XButton1 Up::
-if (sens_X > 0) or (sens_Y > 0)
+if (wheelScrollEmul > 0)
 {
 	SetTimer, OnTimerX1, Off
-	if bIsX1Moved = 0
-		MouseClick, Middle
 }
 return
 
 OnTimerX1:
-VarSetCapacity(move_posX1, 8)
-bResult := DllCall("GetCursorPos", "ptr", &move_posX1)	
-if bResult = 0
-{
-	MsgBox % "GetCursorPos failed: " . DllCall("GetLastError")
-	return
-}
-move_posX1_X := NumGet(move_posX1, 0, "int")
-move_posX1_Y := NumGet(move_posX1, 4, "int")
-DllCall("SetCursorPos", "int", click_posX1_X, "int", click_posX1_Y)
-deltaX1_X += move_posX1_X - click_posX1_X
-deltaX1_Y += move_posX1_Y - click_posX1_Y
-;FileAppend, MouseDelta(%deltaX1_X%`,%deltaX1_Y%) `n, myhotkey.log
-if (sens_X > 0)
-{
-	if deltaX1_X >= %sens_X%
-	{
-		bIsX1Moved = 1
-		c := deltaX1_X // sens_X
-		MouseClick, WR,,,c
-		deltaX1_X -= c * sens_X
-	}
-	else if deltaX1_X <= -%sens_X%
-	{
-		bIsX1Moved = 1
-		c := -deltaX1_X // sens_X
-		MouseClick, WL,,,c
-		deltaX1_X += c * sens_X
-	}
-}
-
-if (sens_Y > 0)
-{
-	if deltaX1_Y >= %sens_Y%
-	{
-		bIsX1Moved = 1
-		c := deltaX1_Y // sens_Y
-		MouseClick, WD,,,c
-		deltaX1_Y -= c * sens_Y
-	}
-	else if deltaX1_Y <= -%sens_Y%
-	{
-		bIsX1Moved = 1
-		c := -deltaX1_Y // sens_Y
-		MouseClick, WU,,,c
-		deltaX1_Y += c * sens_Y
-	}
-}
+wheelSpeedMultiplier += 1
+MouseClick, WD,,,(wheelSpeedMultiplier / 4) + 1
 return
 
 XButton2::
-VarSetCapacity(click_posX2, 8)
-bResult := DllCall("GetCursorPos", "ptr", &click_posX2)	
-if bResult = 0
+if (wheelScrollEmul > 0)
 {
-	MsgBox % "GetCursorPos failed: " . DllCall("GetLastError")
-	return
-}
-click_posX2_X1 := NumGet(click_posX2, 0, "int")
-click_posX2_Y1 := NumGet(click_posX2, 4, "int")
-posX2Arr.Push(click_posX2_X1, click_posX2_Y1)
-if (posX2Arr.Length() >= position_count * 2)
-{
-	click_posX2_X2 := posX2Arr.RemoveAt(1)
-	click_posX2_Y2 := posX2Arr.RemoveAt(1)
-	DllCall("SetCursorPos", "int", click_posX2_X2, "int", click_posX2_Y1)
-	DllCall("SetCursorPos", "int", click_posX2_X2, "int", click_posX2_Y2)
+	MouseClick, WU,,,1
+	wheelSpeedMultiplier = 1
+	SetTimer, OnTimerX2, 50
 }
 return
 
-XButton2 UP::
+XButton2 Up::
+if (wheelScrollEmul > 0)
+{
+	SetTimer, OnTimerX2, Off
+}
+return
+
+OnTimerX2:
+wheelSpeedMultiplier += 1
+MouseClick, WU,,,(wheelSpeedMultiplier / 4) + 1
 return
 
 <!#Left UP::
@@ -171,6 +120,142 @@ return
 WindowSizeAndMove(registeredWindows, 6)
 return
 
+<!#Home UP::
+ShowWndInfo()
+return
+
+<!#End UP::
+Test()
+return
+
+ShowWndInfo()
+{
+	hWnd := WinExist("A")
+	VarSetCapacity(rect, 16)
+	bResult := DllCall("GetWindowRect", "ptr", hWnd, "ptr", &rect)	
+	if bResult = 0
+	{
+		MsgBox % "GetWindowRect failed: " . DllCall("GetLastError")
+		return
+	}
+	winLeft := NumGet(rect, 0, "int")
+	winTop := NumGet(rect, 4, "int")
+	winRight := NumGet(rect, 8, "int")
+	winBottom := NumGet(rect, 12, "int")	
+	winWidth := winRight - winLeft
+	winHeight := winBottom - winTop
+	
+	WinGet, procName, ProcessName
+	procName := Trim(procName)
+	WinGetTitle, winTitle
+	winTitle := Trim(winTitle)
+	
+	hMon := DllCall("MonitorFromRect", "int", 0, "int", 1) ; PRIMARY:1, NEAREST:2
+	VarSetCapacity(mon, 40)
+	NumPut(40, mon, 0, "int")
+	DllCall("GetMonitorInfo", "int", hMon, "ptr", &mon)
+	monLeft := NumGet(mon, 20, "int")
+	monTop := NumGet(mon, 24, "int")
+	monRight := NumGet(mon, 28, "int")
+	monBottom := NumGet(mon, 32, "int")
+	monWidth := monRight - monLeft
+	monHeight := monBottom - monTop
+	
+	MsgBox % "ProcName:" . procName . "`nTitle:" .  winTitle . "`nMonSize:(" . monWidth . "," . monHeight . ")`nWinPos:(" . winLeft . "," . winTop . ")`nWinSize(" . winWidth . "," . winHeight . ")"
+}
+
+Test()
+{
+	hMon := DllCall("MonitorFromRect", "int", 0, "int", 1) ; PRIMARY:1, NEAREST:2
+	VarSetCapacity(mon, 40)
+	NumPut(40, mon, 0, "int")
+	DllCall("GetMonitorInfo", "int", hMon, "ptr", &mon)
+	monLeft := NumGet(mon, 20, "int")
+	monTop := NumGet(mon, 24, "int")
+	monRight := NumGet(mon, 28, "int")
+	monBottom := NumGet(mon, 32, "int")
+	monWidth := monRight - monLeft
+	monHeight := monBottom - monTop
+	settingFileName = winPosSizeFor%monWidth%x%monHeight%.ini
+	IfNotExist, %settingFileName%
+	{
+		MsgBox % "No setting file(" . settingFileName . ")"
+		return
+	}
+	winPosSizeData := []
+	Loop, Read, winPosSizeFor%monWidth%x%monHeight%.ini
+	{
+		arr := StrSplit(A_LoopReadLine, ";")
+		line := Trim(arr[1])
+		if InStr(line,",",,,3) = 0
+			continue
+		winPosSizeData.Push(line)
+	}
+	WinGet, id, List,,, Program Manager
+	Loop, %id%
+	{
+		this_id := id%A_Index%
+		WinGet, this_process, ProcessName, ahk_id %this_id%
+		WinGetTitle, this_title, ahk_id %this_id%
+		for i, line in winPosSizeData
+		{
+			j := 1
+			arr := StrSplit(line, ",")
+			activating := false
+			arr[j] := Trim(arr[j])
+			if arr[j] = "A"
+			{
+				activating := true
+				j := j + 1
+			}
+			arr[j] := Trim(arr[j])
+			if arr[j] = "" or InStr(this_process, arr[j]) = 0
+				continue
+			j := j + 1
+			arr[j] := Trim(arr[j])
+			exact := false
+			if arr[j] = "E"
+			{
+				exact := true
+				j := j + 1
+				arr[j] := Trim(arr[j])
+			}
+			if exact
+			{
+				if Trim(this_title) <> arr[j]
+					continue
+			}
+			else
+			{
+				if arr[j] <> "" and InStr(this_title, arr[j]) = 0
+					continue
+			}			
+			j := j + 1
+			x := Trim(arr[j])
+			j := j + 1
+			y := Trim(arr[j])
+			j := j + 1
+			w := Trim(arr[j])
+			j := j + 1
+			h := Trim(arr[j])
+			j := j + 1
+			if IsNotPosInt(x) or IsNotPosInt(y)
+			{
+				MsgBox % "Wrong line format " . line
+				winPosSizeData.Delete(i)
+				break
+			}
+			if IsNotPosInt(w) or IsNotPosInt(h)
+				WinMove, ahk_id %this_id%,, x, y
+			else
+				WinMove, ahk_id %this_id%,, x, y, w, h			
+			if activating
+				WinActivate, ahk_id %this_id%
+		}		
+	}
+	return	
+}
+
 WindowSizeAndMove(ByRef registeredWindows, ByRef keyNum)
 {
 	hWnd := WinExist("A")
@@ -187,7 +272,7 @@ WindowSizeAndMove(ByRef registeredWindows, ByRef keyNum)
 	winBottom := NumGet(rect, 12, "int")	
 	winWidth := winRight - winLeft
 	winHeight := winBottom - winTop
-	hMon := DllCall("MonitorFromRect", "ptr", &rect, "int", 2) ; MONITOR_DEFAULTTONEAREST
+	hMon := DllCall("MonitorFromRect", "ptr", &rect, "int", 2) ; PRIMARY:1, NEAREST:2
 	VarSetCapacity(mon, 40)
 	NumPut(40, mon, 0, "int")
 	DllCall("GetMonitorInfo", "int", hMon, "ptr", &mon)
@@ -206,7 +291,7 @@ WindowSizeAndMove(ByRef registeredWindows, ByRef keyNum)
 		gap := (monRight - monLeft) - (winRight - winLeft)
 		if (gap <= 0)
 			return
-		d := gap / 6
+		d := gap / 8
 		pos := monLeft + gap
 		While(monLeft < pos - 1)
 		{
@@ -225,7 +310,7 @@ WindowSizeAndMove(ByRef registeredWindows, ByRef keyNum)
 		gap := (monRight - monLeft) - (winRight - winLeft)
 		if (gap <= 0)
 			return
-		d := gap / 6
+		d := gap / 8
 		pos := monLeft
 		While(pos + 1 < monLeft + gap)
 		{
@@ -420,6 +505,15 @@ GetWindowPostWithParam(posXStr, posYStr, targetSizeWidth, targetSizeHeight, winL
 	targetPos.x := newLeft
 	targetPos.y := newTop
 	return targetPos
+}
+
+IsNotPosInt(x)
+{
+	if x is not integer
+		return true
+	if x < 0
+		return true
+	return false
 }
 
 class Position
