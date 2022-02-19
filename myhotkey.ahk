@@ -10,12 +10,11 @@ class Position
 		this.y := y
 	}
 }
-wheelScrollEmul := 0
-wheelSpeedMultiplier := 1
 isPreventAway := 0
 registeredWindows := Map()
 registeredWindows.CaseSense := "Off"
 registeredWindows.Default := ""
+resolutionList := Array()
 currentConfigGroup := "[]"
 Loop Read "myhotkey.ini"
 {
@@ -28,15 +27,15 @@ Loop Read "myhotkey.ini"
 		currentConfigGroup := line
 		continue
 	}
+	if currentConfigGroup = "[ResolutionChange]"
+	{
+		resolutionList.Push(Trim(line))
+		continue
+	}	
 	arr := StrSplit(line, "=")
 	if arr.Length != 2
 		continue	
-	if currentConfigGroup = "[WheelScrollEmulator]"
-	{
-		if Trim(arr[1]) = "on"
-			wheelScrollEmul := Trim(arr[2])
-	}
-	else if currentConfigGroup = "[PreventAway]"
+	if currentConfigGroup = "[PreventAway]"
 	{
 		if Trim(arr[1]) = "on"
 			isPreventAway := Trim(arr[2])
@@ -99,62 +98,6 @@ PreventAway()
 	}
 }
 
-OnTimerX1()
-{
-	global wheelSpeedMultiplier
-	wheelSpeedMultiplier += 1
-	MouseClick "WD",,,(wheelSpeedMultiplier / 4) + 1
-}
-
-XButton1::
-{
-	global wheelScrollEmul
-	global wheelSpeedMultiplier
-	if wheelScrollEmul > 0
-	{
-		MouseClick "WD",,,1
-		wheelSpeedMultiplier := 1
-		SetTimer OnTimerX1, 50
-	}
-}
-
-XButton1 Up::
-{
-	global wheelScrollEmul
-	if wheelScrollEmul > 0
-	{
-		SetTimer OnTimerX1, 0
-	}
-}
-
-OnTimerX2()
-{
-	global wheelSpeedMultiplier
-	wheelSpeedMultiplier += 1
-	MouseClick "WU",,,(wheelSpeedMultiplier / 4) + 1
-}
-
-XButton2::
-{
-	global wheelScrollEmul
-	global wheelSpeedMultiplier
-	if wheelScrollEmul > 0
-	{
-		MouseClick "WU",,,1
-		wheelSpeedMultiplier := 1
-		SetTimer OnTimerX2, 50
-	}
-}
-
-XButton2 Up::
-{
-	global wheelScrollEmul
-	if wheelScrollEmul > 0
-	{
-		SetTimer OnTimerX2, 0
-	}
-}
-
 <!#Left UP:: WindowSizeAndMove(registeredWindows, 1)
 <!#Right UP:: WindowSizeAndMove(registeredWindows, 2)
 <!#Up UP:: WindowSizeAndMove(registeredWindows, 3)
@@ -163,6 +106,9 @@ XButton2 Up::
 <!#PgDn UP:: WindowSizeAndMove(registeredWindows, 6)
 <!#Home UP:: ShowWndInfo()
 <!#End UP:: SetWinsSizePos()
+<!#Del:: Suspend()
+<!#NumpadAdd:: ChangeResolution(0)
+<!#NumpadSub:: ChangeResolution(1)
 
 ShowWndInfo()
 {
@@ -257,6 +203,63 @@ SetWinsSizePos()
 				WinActivate("ahk_id" this_id)
 			break
 		}		
+	}
+}
+
+Suspend()
+{
+	DllCall("PowrProf\SetSuspendState", "int", 0, "int", 0, "int", 1)
+}
+
+ChangeResolution(x)
+{
+	deviceMode := Buffer(156, 0)
+	NumPut("UInt",156, deviceMode,36) 
+	DllCall( "EnumDisplaySettingsA", "UInt",0, "UInt",-1, "Ptr",deviceMode )
+	curW := NumGet(deviceMode, 108, "UInt")
+	curH := NumGet(deviceMode, 112, "UInt")
+	NumPut("UInt",0x180000, deviceMode,40) 
+	prevW := 0
+	prevH := 0
+	nextOK := false
+	For i, line in resolutionList
+	{
+		arr := StrSplit(line, ",")
+		if arr.Length != 2
+			continue
+		if (not isInteger(Trim(arr[1]))) or (not isInteger(Trim(arr[2])))
+			continue
+		lineW := Trim(arr[1])
+		lineH := Trim(arr[2])
+		if nextOK
+		{
+			NumPut("UInt",lineW, deviceMode,108)
+			NumPut("UInt",lineH, deviceMode,112)
+			DllCall( "ChangeDisplaySettingsA", "Ptr",deviceMode, "UInt",0 )			
+			Sleep 1000
+			Reload
+			return
+			
+		}
+		if curW = lineW and curH = lineH
+		{
+			if x = 0
+			{
+				nextOK := true
+				continue
+			}
+			if prevW = 0 or prevH = 0
+				return
+			NumPut("UInt",prevW, deviceMode,108)
+			NumPut("UInt",prevH, deviceMode,112)
+			DllCall( "ChangeDisplaySettingsA", "Ptr",deviceMode, "UInt",0 )			
+			Sleep 1000
+			Reload
+			return
+			
+		}
+		prevW := lineW
+		prevH := lineH
 	}
 }
 
