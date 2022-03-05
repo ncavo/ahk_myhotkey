@@ -1,3 +1,4 @@
+;InstallMouseHook true, true
 CoordMode "Mouse", "Screen"
 FileEncoding "UTF-8"
 class Position
@@ -13,6 +14,8 @@ class Position
 }
 
 isPreventAway := 0
+isMouseGesture := 0
+mouseGestureTimeOut := 400
 registeredWindows := Map()
 registeredWindows.CaseSense := "Off"
 registeredWindows.Default := ""
@@ -48,6 +51,13 @@ Loop Read "myhotkey.ini"
 	{
 		if Trim(arr[1]) = "on"
 			isPreventAway := Trim(arr[2])
+	}	
+	else if currentConfigGroup = "[MouseGesture]"
+	{
+		if Trim(arr[1]) = "on"
+			isMouseGesture := Trim(arr[2])
+		else Trim(arr[1]) = "timeout"
+			mouseGestureTimeOut := Trim(arr[2])
 	}	
 	else if currentConfigGroup = "[WindowProcessRegister]"
 	{
@@ -96,6 +106,14 @@ if FileExist(settingFileName)
 
 if isPreventAway > 0
 {
+	PreventAway()
+	{
+		if A_TimeIdle >= 60000
+		{
+			MouseMove 1, 1,, "R"
+			MouseMove -1, -1,, "R"
+		}
+	}
 	SetTimer PreventAway, 90000
 }
 ;FileAppend "done`n", A_Desktop "\log.txt"
@@ -111,27 +129,15 @@ return
 <!#Del UP:: RemoveWinsSizePos()
 <!#Home UP:: SetWinsSizePos()
 <!#End UP:: ShowWndInfo()
+#HotIf resolutionList.Length >= 2
 <!#NumpadAdd:: ChangeResolution(0)
+#HotIf resolutionList.Length >= 2
 <!#NumpadSub:: ChangeResolution(1)
-<!#NumpadMult:: Suspend()
-
-PreventAway()
-{
-	if A_TimeIdle >= 60000
-	{
-		MouseMove 1, 1,, "R"
-		MouseMove -1, -1,, "R"
-	}
-}
-
-IsNotPosInt(x)
-{
-	if not isInteger(x)
-		return true
-	if x < 0
-		return true
-	return false
-}
+<!#NumpadMult:: DllCall("PowrProf\SetSuspendState", "int", 0, "int", 0, "int", 1)
+#HotIf isMouseGesture > 0
+RButton:: MouseGesture(1)
+#HotIf isMouseGesture > 0
+RButton UP:: MouseGesture(2)
 
 GetWindowSizeWithParam(param, size)
 {
@@ -642,7 +648,88 @@ ChangeResolution(x)
 	}
 }
 
-Suspend()
+MouseGesture(x)
 {
-	DllCall("PowrProf\SetSuspendState", "int", 0, "int", 0, "int", 1)
+	Timeout()
+	{
+		MouseGesture(0)
+	}
+	static inTime := false
+	static posX := 0
+	static posY := 0
+	static hWnd := 0
+	Switch x
+	{
+	case 0:
+		SetTimer Timeout, 0
+		inTime := false
+		MouseGetPos &posX2, &posY2
+		MouseClick "Right",posX,posY,,,"D"
+		MouseMove posX2, posY2
+	case 1:
+		inTime := true
+		MouseGetPos &posX, &posY, &hWnd
+		SetTimer Timeout, mouseGestureTimeOut
+	case 2:
+		SetTimer Timeout, 0
+		if inTime = false
+		{
+			MouseClick "Right",,,,,"U"
+			return
+		}
+		MouseGetPos &posX2, &posY2
+		dX := posX2 - posX
+		dY := posY2 - posY
+		direction := -1
+		if dY < -120
+		{
+			if dX < -120
+				direction := 315
+			else if dX > 120
+				direction := 45
+			else if dX < 60 and dX > -60
+				direction := 0
+		}
+		else if dY > 120
+		{
+			if dX < -120
+				direction := 225
+			else if dX > 120
+				direction := 135
+			else if dX < 60 and dX > -60
+				direction := 180
+		}
+		else if dY < 60 and dY > -60
+		{
+			if dX < -120
+				direction := 270
+			else if dX > 120
+				direction := 90
+		}
+		Switch direction
+		{
+		case -1:
+			MouseClickDrag "Right",posX,posY,posX2,posY2
+		case 0:
+			Send "#{Tab}"		
+		case 45:
+			WinActivate("ahk_id" hWnd)
+			Send "^w"
+		case 90:
+			MouseClick "X2"		
+		case 135:
+			Send "#d"		
+		case 180:
+			WinMoveBottom("ahk_id" hWnd)
+			MouseGetPos &posX2, &posY2, &hWnd
+			WinActivate("ahk_id" hWnd)
+		case 225:
+			Send "#x"				
+		case 270:
+			MouseClick "X1"
+		case 315:
+			WinActivate("ahk_id" hWnd)
+			Send "!{F4}"		
+		}
+	}
 }
